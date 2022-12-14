@@ -51,8 +51,8 @@ class ChartGroupCollection:
 
     def plot(self):
         # rows is the number of different chart types -- currently is completions,
-        # consumptions, and waits
-        max_nrows = 3
+        # consumptions, waits, and throughput
+        max_nrows = 4
         ncols = len(self.members)
         width = 11 * ncols
         height = 5 * max_nrows
@@ -66,6 +66,7 @@ class ChartGroupCollection:
         global_relative_xmax = 0
         global_nios_ymax = 0
         global_latency_ymax = 0
+        global_throughput_ymax = 0
         for member in self.members:
             member_relative_xmax = member.get_max_relative_time()
             if member_relative_xmax > global_relative_xmax:
@@ -79,13 +80,19 @@ class ChartGroupCollection:
             if member_latency_ymax > global_latency_ymax:
                 global_latency_ymax = member_latency_ymax
 
+            member_throughput_ymax = member.consumptions.avg_tput.max()
+            if member_throughput_ymax > global_throughput_ymax:
+                global_throughput_ymax = member_throughput_ymax
+
         global_nios_ymax *= 1.2
         global_latency_ymax *= 1.2
-        global_relative_xmax *= 1.1
+        global_throughput_ymax *= 1.2
+        global_relative_xmax *= 1.01
 
         for col, member in enumerate(self.members):
             axes[member.nios_row][col].set_ylim([0, global_nios_ymax])
             axes[member.latency_row][col].set_ylim([0, global_latency_ymax])
+            axes[member.throughput_row][col].set_ylim([0, global_throughput_ymax])
 
         for ax in axes.flat:
             ax.set_xlim([0, global_relative_xmax])
@@ -108,6 +115,7 @@ class ChartGroup:
         self.wait_row = 0
         self.nios_row = 1
         self.latency_row = 2
+        self.throughput_row = 3
 
     @property
     def xmin(self):
@@ -149,6 +157,8 @@ class ChartGroup:
             return self._consumptions
         consumption_log = os.path.join(self.logdir, 'consumption_log_' + self.version)
         self._consumptions = pd.read_csv(consumption_log)
+        self._consumptions = self._consumptions.set_index('consumption_time',
+                                                          drop=False)
         return self._consumptions
 
     def make_time_relative(self):
