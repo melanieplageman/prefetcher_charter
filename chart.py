@@ -199,6 +199,9 @@ class ChartGroup:
         self.completions.plot(x='relative_time', y=['latency'],
                               ax=axes[self.latency_row][col])
 
+        self.consumptions.plot(x='relative_time', y=['avg_tput'],
+                               ax=axes[self.throughput_row][col])
+
         # Put the title above the first row of each column
         axes[0][col].set_title(self.version)
 
