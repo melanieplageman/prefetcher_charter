@@ -23,8 +23,7 @@ class Lineup:
         self._global_xmax = None
 
     def plot(self, metric_groups):
-        # For now, add one for the wait chart
-        max_nrows = len(metric_groups) + 1
+        max_nrows = len(metric_groups)
         ncols = len(self.members)
         width = 11 * ncols
         height = 5 * max_nrows
@@ -37,7 +36,7 @@ class Lineup:
             ymax = 0
             for col, member in enumerate(self.members):
                 ymax = global_max(member.max_for_metric_group(metric_group), ymax)
-                xmax = global_max(member.data.relative_time.max(), xmax)
+                xmax = global_max(member.data.index.max(), xmax)
 
             for col in range(len(self.members)):
                 axes[row][col].set_ylim([0, ymax * 1.2])
@@ -56,48 +55,33 @@ class Member:
         self.version = version
         self.logdir = '/tmp/pgsr_pfd'
         self._data = None
-        self._waits = None
-
-    @property
-    def waits(self):
-        if self._waits is not None:
-            return self._waits
-        output = []
-        for row in self.data[self.data['metric'] == 5].itertuples():
-            wait_start = math.floor(row.relative_time)
-            output.append({'relative_time': wait_start, 'value': 1})
-            wait_end = math.ceil(wait_start + row.value)
-            output.append({'relative_time': wait_end, 'value': 0})
-
-        df = pd.DataFrame.from_records(output)
-        self._waits = df.set_index('relative_time', drop=False)
-        return self._waits
 
     @property
     def data(self):
+        if self._data is not None:
+            return self._data
+
         log = os.path.join(self.logdir, 'metric_log_' +
                                      self.version)
         self._data = pd.read_csv(log)
         self._data = self._data.sort_values(by=['time'])
         zero = self._data.time.min()
-        self._data['relative_time'] = self._data.time.apply(
-                lambda t: t - zero)
-        self._data = self._data.set_index('relative_time', drop=False)
+        self._data['relative_time'] = self._data.time.apply(lambda t: t - zero)
+        self._data = self._data.drop_duplicates(['relative_time','value','metric'])
+        self._data = self._data.pivot(index='relative_time', columns='metric',
+                                      values='value')
+        self._data[Metric.WAIT.value] = self._data[Metric.WAIT.value].cumsum()
         return self._data
 
     def max_for_metric_group(self, metric_group):
-        return self.data[self.data['metric'].isin([metric.value for metric in metric_group])]['value'].max()
+        return max(self.data[metric.value].max() for metric in metric_group)
 
     def plot(self, col, axes, metric_groups):
         for row, metric_group in enumerate(metric_groups):
-            df = self.data[self.data['metric'].isin([metric.value for metric in
-                                                     metric_group])]
             for metric in metric_group:
-                getattr(df.plot, 'line')(y='value', ax=axes[row][col],
-                                         label=metric.name)
+                df = self.data.dropna(subset=[metric.value])
+                df.plot(y=metric.value, ax=axes[row][col], label=metric.name)
 
-        self.waits.plot.area(y='value', ax=axes[len(metric_groups)][col],
-                             label=Metric.WAIT.name)
         axes[0][col].set_title(self.version)
 
 
@@ -109,5 +93,8 @@ for version in versions:
 
 lineup = Lineup(chart_groups)
 
-metric_groups = [[Metric.AVG_TPUT],[Metric.LATENCY],[Metric.INFLIGHT]]
+metric_groups = [[Metric.AVG_TPUT], [Metric.LATENCY],
+                 [Metric.CNC, Metric.INFLIGHT, Metric.PFD],
+                 [Metric.WAIT]]
+
 lineup.plot(metric_groups)
