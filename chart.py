@@ -8,9 +8,13 @@ class Metric(Enum):
     AVG_TPUT = 0
     LATENCY = 1
     PFD = 2
-    INFLIGHT = 3
-    CNC = 4
-    WAIT = 5
+    SUBMITTED = 3
+    INFLIGHT = 4
+    CNC = 5
+    COMPLETED = 6
+    CONSUMED = 7
+    REAL_CONSUMED = 8
+    WAIT = 9
 
 def global_max(local_max, global_max):
     if local_max > global_max:
@@ -93,7 +97,10 @@ for version in versions:
 
 lineup = Lineup(chart_groups)
 
-metric_groups = [[Metric.AVG_TPUT], [Metric.LATENCY],
+metric_groups = [[Metric.CONSUMED, Metric.REAL_CONSUMED],
+                 [Metric.AVG_TPUT], [Metric.LATENCY],
+                 [Metric.COMPLETED],
+                 [Metric.SUBMITTED],
                  [Metric.CNC, Metric.INFLIGHT, Metric.PFD],
                  [Metric.WAIT]]
 
