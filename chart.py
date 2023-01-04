@@ -71,7 +71,14 @@ class Member:
         self._data = self._data.sort_values(by=['time'])
         zero = self._data.time.min()
         self._data['relative_time'] = self._data.time.apply(lambda t: t - zero)
-        self._data = self._data.drop_duplicates(['relative_time','value','metric'])
+        # self._data = self._data.drop_duplicates(['relative_time','value','metric'])
+        df = self._data[self._data['metric'] == Metric.AVG_TPUT.value]
+        df.to_csv(f'{self.version}.csv')
+        self._data = self._data.drop_duplicates(['relative_time','metric'])
+
+        # self._data = self._data.set_index('relative_time')
+        pd.set_option('display.max_rows', None)
+        # print(self._data[['relative_time','value','metric']])
         self._data = self._data.pivot(index='relative_time', columns='metric',
                                       values='value')
         self._data[Metric.WAIT.value] = self._data[Metric.WAIT.value].cumsum()
